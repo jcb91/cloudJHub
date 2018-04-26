@@ -197,7 +197,8 @@ def make_worker_ami(config, ec2, security_group_list):
 
     # register Python 3 and 2 kernel
     sudo("python3 -m ipykernel install")
-    sudo("python2 -m ipykernel install")
+
+#    sudo("python2 -m ipykernel install")
     sudo("chmod 755 /mnt")
     sudo("chown ubuntu /mnt")
 
@@ -372,14 +373,16 @@ def retry(function, *args, **kwargs):
     max_retries = kwargs.pop("max_retries", 10)
     timeout = kwargs.pop("timeout", 3)
     for i in range(max_retries):
-        print (".", sys.stdout.flush())
+        print (".")
+        sys.stdout.flush()
         try:
             return function(*args, **kwargs)
         except (ClientError, NetworkError, WaiterError) as e:
             logger.debug("retrying %s, (~%s seconds elapsed)" % (function, i * 3))
             sleep(timeout)
-    logger.error("hit max retries on %s" % function)
-    raise e
+            if i == max_retries - 1:
+                logger.error("hit max retries on %s" % function)
+                raise e
 
 #####################################################################################################################
 #################################################### MAIN ###########################################################

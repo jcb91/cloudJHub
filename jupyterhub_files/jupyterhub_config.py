@@ -13,6 +13,7 @@ c = get_config()
 c.JupyterHub.cookie_secret_file	= '/etc/jupyterhub/cookie_secret'
 c.JupyterHub.db_url		= '/etc/jupyterhub/jupyterhub.sqlite'
 
+
 # To use MySQL DB
 #c.JupyterHub.db_url = "mysql://{}:{}@{}/{}".format(DB_USERNAME, DB_USERPASSWORD, DB_HOSTNAME, DB_NAME)
 # Replace
@@ -21,7 +22,6 @@ c.JupyterHub.db_url		= '/etc/jupyterhub/jupyterhub.sqlite'
 #   DB_USERNAME and DB_USERPASSWORD with username and password of a privileged user.
 # Example :
 #   c.JupyterHub.db_url = "mysql://{}:{}@{}/{}".format("jupyterhubdbuser", "jupyter#ubdbuserp@ssword","54.0.0.99","jupyterhubdb")
-
 
 c.JupyterHub.log_level	= "DEBUG"
 
@@ -33,7 +33,10 @@ localip = s.getsockname()[0]
 
 c.JupyterHub.hub_ip	= localip
 c.JupyterHub.hub_port	= 8081
-c.JupyterHub.port	= 80
+c.JupyterHub.port	= 443
+c.JupyterHub.confirm_no_ssl = False
+c.JupyterHub.ssl_cert = '/etc/jupyterhub/ssl/jupyterhub_ssl.pem'
+c.JupyterHub.ssl_key = '/etc/jupyterhub/ssl/jupyterhub_ssl.key'
 
 c.ConfigurableHTTPProxy.api_url		= 'http://' + localip +':8001'
 #c.ConfigurableHTTPProxy.auth_token	= 'PUT token here'

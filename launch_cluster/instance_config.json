@@ -6,7 +6,7 @@
 "JUPYTER_NOTEBOOK_TIMEOUT": 3600,
 "CUSTOM_WORKER_AMI": "",
 "SERVER_USERNAME": "ubuntu",
-"REGION": "us-east-1",
+"REGION": "eu-west-2",
 "WORKER_USERNAME": "ubuntu",
 "SERVER_OWNER": "",
 "IGNORE_PERMISSIONS": "false"
