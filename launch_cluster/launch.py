@@ -266,11 +266,21 @@ def make_worker_ami(config, ec2, security_group_list):
 
 
 def create_security_group(name):
-    security_group = ec2_connection(config.region).create_security_group(
-        VpcId=VPC_ID,
-        GroupName=name,
-        Description=name
-    )
+    # first, see if it already exists. If so, use it.
+    ec2_client = ec2_connection(config.region)
+    try:
+        security_group = ec2_client.describe_security_groups(Filters=[
+            {'Name': 'vpc-id', 'Values': [VPC_ID]},
+            {'Name': 'group-name', 'Values': [name]}
+        ])['SecurityGroups'][0]
+    except ClientError as exc:
+        if exc.response['Error']['Code'] != 'InvalidGroup.NotFound':
+            raise
+        security_group = ec2_client.create_security_group(
+            VpcId=VPC_ID,
+            GroupName=name,
+            Description=name
+        )
     return get_resource(config.region).SecurityGroup(security_group["GroupId"])
 
 
