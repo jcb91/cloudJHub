@@ -319,15 +319,28 @@ def create_server_security_groups():
         "jupyter-hub-%s-manager" % config.cluster_name)
 
     manager_security_group = create_security_group(manager_security_group_name)
-    manager_security_group.authorize_ingress(
-        FromPort=22, ToPort=22, IpProtocol="TCP", CidrIp="0.0.0.0/0"
-    )
-    manager_security_group.authorize_ingress(
-        FromPort=80, ToPort=80, IpProtocol="TCP", CidrIp="0.0.0.0/0"
-    )
-    manager_security_group.authorize_ingress(
-        FromPort=443, ToPort=443, IpProtocol="TCP", CidrIp="0.0.0.0/0"
-    )
+
+    try:
+        manager_security_group.authorize_ingress(
+            FromPort=22, ToPort=22, IpProtocol="TCP", CidrIp="0.0.0.0/0"
+        )
+    except ClientError as exc:
+        if exc.response['Error']['Code'] != 'InvalidPermission.Duplicate':
+            raise
+    try:
+        manager_security_group.authorize_ingress(
+            FromPort=80, ToPort=80, IpProtocol="TCP", CidrIp="0.0.0.0/0"
+        )
+    except ClientError as exc:
+        if exc.response['Error']['Code'] != 'InvalidPermission.Duplicate':
+            raise
+    try:
+        manager_security_group.authorize_ingress(
+            FromPort=443, ToPort=443, IpProtocol="TCP", CidrIp="0.0.0.0/0"
+        )
+    except ClientError as exc:
+        if exc.response['Error']['Code'] != 'InvalidPermission.Duplicate':
+            raise
 
     worker_security_group_name = "jupyter-hub-%s-worker" % config.cluster_name
     worker_security_group = create_security_group(worker_security_group_name)
