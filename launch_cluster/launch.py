@@ -265,6 +265,14 @@ def make_worker_ami(config, ec2, security_group_list):
 ##############################################################################
 
 
+def authorize_ingress(security_group, *args, **kwargs):
+    try:
+        security_group.authorize_ingress(*args, **kwargs)
+    except ClientError as exc:
+        if exc.response['Error']['Code'] != 'InvalidPermission.Duplicate':
+            raise
+
+
 def create_security_group(name):
     # first, see if it already exists. If so, use it.
     ec2_client = ec2_connection(config.region)
@@ -320,27 +328,17 @@ def create_server_security_groups():
 
     manager_security_group = create_security_group(manager_security_group_name)
 
-    try:
-        manager_security_group.authorize_ingress(
-            FromPort=22, ToPort=22, IpProtocol="TCP", CidrIp="0.0.0.0/0"
-        )
-    except ClientError as exc:
-        if exc.response['Error']['Code'] != 'InvalidPermission.Duplicate':
-            raise
-    try:
-        manager_security_group.authorize_ingress(
-            FromPort=80, ToPort=80, IpProtocol="TCP", CidrIp="0.0.0.0/0"
-        )
-    except ClientError as exc:
-        if exc.response['Error']['Code'] != 'InvalidPermission.Duplicate':
-            raise
-    try:
-        manager_security_group.authorize_ingress(
-            FromPort=443, ToPort=443, IpProtocol="TCP", CidrIp="0.0.0.0/0"
-        )
-    except ClientError as exc:
-        if exc.response['Error']['Code'] != 'InvalidPermission.Duplicate':
-            raise
+    authorize_ingress(
+        manager_security_group,
+        FromPort=22, ToPort=22, IpProtocol="TCP", CidrIp="0.0.0.0/0")
+
+    authorize_ingress(
+        manager_security_group,
+        FromPort=80, ToPort=80, IpProtocol="TCP", CidrIp="0.0.0.0/0")
+
+    authorize_ingress(
+        manager_security_group,
+        FromPort=443, ToPort=443, IpProtocol="TCP", CidrIp="0.0.0.0/0")
 
     worker_security_group_name = "jupyter-hub-%s-worker" % config.cluster_name
     worker_security_group = create_security_group(worker_security_group_name)
