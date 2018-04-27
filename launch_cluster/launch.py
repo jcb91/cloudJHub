@@ -342,7 +342,7 @@ def create_server_security_groups():
 
     worker_security_group_name = "jupyter-hub-%s-worker" % config.cluster_name
     worker_security_group = create_security_group(worker_security_group_name)
-    uthorize_ingress(worker_security_group, IpPermissions=[{
+    authorize_ingress(worker_security_group, IpPermissions=[{
         "IpProtocol": "-1",
         "ToPort": -1,
         "FromPort": -1,
