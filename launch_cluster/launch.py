@@ -357,7 +357,7 @@ def create_server_security_groups():
         "jupyter-hub-%s-manager2" % config.cluster_name)
     manager_security_group2 = create_security_group(
         manager_security_group_name)
-    manager_security_group2.authorize_ingress(IpPermissions=[
+    authorize_ingress(manager_security_group2, IpPermissions=[
         {  # Jupyterhub proxy
             "IpProtocol": "TCP", "ToPort": 8888, "FromPort": 8888,
             "UserIdGroupPairs": [{"GroupId": worker_security_group.id}]
