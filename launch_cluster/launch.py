@@ -65,8 +65,10 @@ def launch_manager(config):
             config, ec2,
             [manager_security_group.id, manager_security_group2.id])
     else:
-        logger.info("Custom worker AMI id '%s' specified. Using custom AMI to launch worker user servers." %
-                    config.custom_worker_ami)
+        logger.info(
+            "Custom worker AMI id '%s' specified. "
+            "Using custom AMI to launch worker user servers." %
+            config.custom_worker_ami)
         worker_ami_id = config.custom_worker_ami
 
     # Launch the manager
@@ -124,7 +126,9 @@ def launch_manager(config):
     # Setup the common files and settings between manager and worker.
     setup_manager(server_params, config, instance.private_ip_address)
 
-    # For security, close port 22 on manager security group to prevent SSH access to manager host
+    # For greater security,
+    #   close port 22 on manager security group
+    #   to prevent SSH access to manager host
     # logger.info("Closing port 22 on manager")
     # manager_security_group.revoke_ingress(
     #         FromPort=22, ToPort=22, IpProtocol="TCP", CidrIp="0.0.0.0/0"
@@ -141,36 +145,45 @@ def setup_manager(server_params, config, manager_ip_address):
         (server_params["SERVER_USERNAME"], KEY_NAME))
     sudo("chmod 600 /home/%s/.ssh/%s" %
          (server_params["SERVER_USERNAME"], KEY_NAME))
-    # bash environment configuration files (for devs and admins) worker_security_group
+    # bash configuration files (for devs and admins) worker_security_group
     run("cp /var/tmp/common_files/.inputrc ~/")
     run("cp /var/tmp/common_files/.bash_profile ~/")
     # Common installs: python 3
     sudo("apt-get -qq -y update")
-    #sudo("apt-get -qq -y install -q python3.4 python3-pip sqlite sysv-rc-conf", quiet=True)
-    sudo("apt-get -qq -y install -q python3-pip sqlite sysv-rc-conf", quiet=True)
+    # sudo("apt-get -qq -y install -q "
+    #      "python3.4 python3-pip sqlite sysv-rc-conf", quiet=True)
+    sudo("apt-get -qq -y install -q python3-pip sqlite sysv-rc-conf",
+         quiet=True)
     sudo("/usr/bin/pip3 install --force-reinstall --upgrade pip")
-    #sudo("easy_install3 pip", quiet=True)
+    # sudo("easy_install3 pip", quiet=True)
     sudo("pip3 --quiet install ipython nbgrader", quiet=True)
     # Sets up jupyterhub components
     put("jupyterhub_files", remote_path="/var/tmp/")
     sudo("cp -r /var/tmp/jupyterhub_files /etc/jupyterhub")
     # pip installs
-    sudo("pip3 install --quiet -r /var/tmp/jupyterhub_files/requirements_jupyterhub.txt")
+    sudo("pip3 install --quiet "
+         "-r /var/tmp/jupyterhub_files/requirements_jupyterhub.txt")
     # apt-get installs for jupyterhub
     sudo("apt-get -qq -y install -q nodejs-legacy npm")
     # npm installs for the jupyterhub proxy
     sudo("npm install -q -g configurable-http-proxy")
     # move init script into place so we can have jupyterhub run as a "service".
-    sudo("cp /var/tmp/jupyterhub_files/jupyterhub_service.sh /etc/init.d/jupyterhub")
+    sudo("cp "
+         "/var/tmp/jupyterhub_files/jupyterhub_service.sh "
+         "/etc/init.d/jupyterhub")
     sudo("chmod +x /etc/init.d/jupyterhub")
     sudo("systemctl daemon-reload")
     sudo("sysv-rc-conf --level 5 jupyterhub on")
     # Put the server_params dict into the environment
     sudo("echo '%s' > /etc/jupyterhub/server_config.json" %
          json.dumps(server_params))
-    # Generate a token value for use in making authenticated calls to the jupyterhub api
-    # Note: this value cannot be put into the server_params because the file is imported in our spawner
-    sudo("/usr/local/bin/jupyterhub token -f /etc/jupyterhub/jupyterhub_config.py __tokengeneratoradmin > /etc/jupyterhub/api_token.txt")
+    # Generate a token value for use in making authenticated calls
+    # to the jupyterhub api
+    # Note: this value cannot be put into the server_params because the file
+    # is imported in our spawner
+    sudo("/usr/local/bin/jupyterhub token -f "
+         "/etc/jupyterhub/jupyterhub_config.py "
+         "__tokengeneratoradmin > /etc/jupyterhub/api_token.txt")
     # start jupyterhub
     sudo("service jupyterhub start", pty=False)
     # move our cron script into place
@@ -186,7 +199,11 @@ def setup_manager(server_params, config, manager_ip_address):
 
 
 def make_worker_ami(config, ec2, security_group_list):
-    """ Sets up worker components, runs before jupyterhub setup, after common setup. """
+    """
+    Set up worker components to create an AMI.
+
+    Should run before jupyterhub setup, after common setup.
+    """
     instance = launch_server(
         config, ec2, security_group_list, size=int(config.worker_ebs_size))
     instance.wait_until_exists()
@@ -197,7 +214,8 @@ def make_worker_ami(config, ec2, security_group_list):
     env.key_filename = KEY_PATH
     env.user = config.server_username
 
-    # Wait for server to finish booting (keep trying until you can successfully run a command on the server via ssh)
+    # Wait for server to finish booting
+    # (keep trying until we successfully run a command on the server via ssh)
     retry(run, "# waiting for ssh to be connectable...", max_retries=100)
 
     sudo("apt-get -qq -y update")
@@ -206,7 +224,8 @@ def make_worker_ami(config, ec2, security_group_list):
     sudo("apt-get -qq -y install -q python3-pip sqlite sysv-rc-conf")
     sudo("pip3 install --force-reinstall --upgrade pip")
 
-    put("jupyterhub_files/requirements_jupyterhub.txt", remote_path="/var/tmp/")
+    put("jupyterhub_files/requirements_jupyterhub.txt",
+        remote_path="/var/tmp/")
     # pip installs
     sudo("pip3 install --quiet -r /var/tmp/requirements_jupyterhub.txt")
     # apt-get installs for jupyterhub
@@ -226,9 +245,14 @@ def make_worker_ami(config, ec2, security_group_list):
     ami_name = "jupyter-hub-%s-worker-image" % config.cluster_name
     worker_ami = instance.create_image(Name=ami_name)
 
-    # Wait until AMI is ready or 300 seconds have elapsed to allow for server restart
-    for i in range(100):
-        if get_resource(config.region).Image(worker_ami.id).state == "available":
+    # Wait until
+    #     AMI is ready
+    #  or
+    #     300 seconds have elapsed to allow for server restart
+    res = get_resource(config.region)
+    for i in range(0, 300, 3):
+        img = res.Image(worker_ami.id)
+        if img.state == "available":
             break
         logger.info("AMI not ready yet (running for ~%s seconds)" % (i * 3))
         sleep(3)
@@ -277,7 +301,9 @@ def subnet_connection(region, subnet_id):
 
 
 def create_server_security_groups():
-    # Create a security group for the manager with ports 22, 80, and 443 open to the public
+
+    # Create a security group for the manager
+    #     with ports 22, 80, and 443 open to the public
     logger.info("Creating security groups")
     manager_security_group_name = (
         "jupyter-hub-%s-manager" % config.cluster_name)
@@ -296,13 +322,18 @@ def create_server_security_groups():
     worker_security_group_name = "jupyter-hub-%s-worker" % config.cluster_name
     worker_security_group = create_security_group(worker_security_group_name)
     worker_security_group.authorize_ingress(IpPermissions=[{
-        "IpProtocol": "-1", "ToPort": -1, "FromPort": -1,
-        "UserIdGroupPairs": [{"GroupId": manager_security_group.id}]
+        "IpProtocol": "-1",
+        "ToPort": -1,
+        "FromPort": -1,
+        "UserIdGroupPairs": [
+            {"GroupId": manager_security_group.id}
+        ]
     }])
 
-    # Create a separate manager security group so that groups do not have cyclic
-    # reference, in order to make deleting easier
-    manager_security_group_name = "jupyter-hub-%s-manager2" % config.cluster_name
+    # Create a separate manager security group so that groups do not have
+    # cyclic reference, in order to make deleting easier
+    manager_security_group_name = (
+        "jupyter-hub-%s-manager2" % config.cluster_name)
     manager_security_group2 = create_security_group(
         manager_security_group_name)
     manager_security_group2.authorize_ingress(IpPermissions=[
@@ -315,7 +346,11 @@ def create_server_security_groups():
             "UserIdGroupPairs": [{"GroupId": worker_security_group.id}]
         },
     ])
-    return worker_security_group, manager_security_group, manager_security_group2
+    return (
+        worker_security_group,
+        manager_security_group,
+        manager_security_group2
+    )
 
 
 def launch_server(config, ec2, security_groups_list, size=8):
@@ -329,7 +364,7 @@ def launch_server(config, ec2, security_groups_list, size=8):
             'VolumeSize': size,  # size in gigabytes
             'DeleteOnTermination': True,
             'VolumeType': 'gp2',  # This means General Purpose SSD
-          # 'Iops': 1000  # i/o speed for storage, default is 100, more is faster
+            # 'Iops': 1000  # i/o speed, default is 100, more is faster
         }
     }
     reservation = retry(
@@ -353,20 +388,22 @@ def launch_server(config, ec2, security_groups_list, size=8):
     return instance
 
 
-#####################################################################################################################
-################################################# OTHER HELPERS #####################################################
-#####################################################################################################################
+###############################################################################
+#                                OTHER HELPERS                                #
+###############################################################################
 
 def validate_config():
-    """ Checks key file permissions """
+    """Check key-file permissions are 600"""
     if config.ignore_permissions == "false":
         permissions = oct(os.stat(KEY_PATH).st_mode % 2 ** 9)
         if permissions[2:] != "600":
-            print("Your key file permissions are %s, they need to be (0)600 "
-                  "or else the configuration script will not be able to connect "
-                  "to the server.\n"
-                  '(You can override this check with "--ignore-permissions true")'
-                  % permissions)
+            print(
+                "Your key file permissions are %s, they need to be (0)600 "
+                "or else the configuration script will not be able to connect "
+                "to the server.\n"
+                "(You can override this check with "
+                '"--ignore-permissions true")'
+                % permissions)
             exit()
     else:
         print("Ignoring ssh key permissions")
@@ -407,29 +444,34 @@ def retry(function, *args, **kwargs):
         sys.stdout.flush()
         try:
             return function(*args, **kwargs)
-        except (ClientError, NetworkError, WaiterError) as e:
-            logger.debug("retrying %s, (~%s seconds elapsed)" % (function, i * 3))
+        except (ClientError, NetworkError, WaiterError) as exc:
+            logger.debug("retrying %s, (~%s seconds elapsed)" %
+                         (function, i * 3))
             sleep(timeout)
             if i == max_retries - 1:
                 logger.error("hit max retries on %s" % function)
-                raise e
+                raise exc
 
-#####################################################################################################################
-#################################################### MAIN ###########################################################
-#####################################################################################################################
+###############################################################################
+#                                       MAIN                                  #
+###############################################################################
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Launches a JupyterHub cluster")
     parser.add_argument(
-        "cluster_name", help="the name of the cluster, used for tagging aws resources")
+        "cluster_name",
+        help="the name of the cluster, used for tagging aws resources")
     parser.add_argument(
-        "base_ami", help="the AWS base AMI id used for user servers")
+        "base_ami",
+        help="the AWS base AMI id used for user servers")
     parser.add_argument(
-        "private_subnet_id", help="the AWS id of the private subnet for user servers")
+        "private_subnet_id",
+        help="the AWS id of the private subnet for user servers")
     parser.add_argument(
-        "public_subnet_id", help="the AWS id of the public subnet for manager server(s)")
+        "public_subnet_id",
+        help="the AWS id of the public subnet for manager server(s)")
     for item, default in CONFIG_DEFAULTS.items():
         flag = "--%s" % item.lower()
         parser.add_argument(flag, help="defaults to %s" %
